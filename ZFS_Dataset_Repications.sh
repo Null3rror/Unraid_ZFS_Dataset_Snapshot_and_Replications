@@ -489,9 +489,11 @@ update_paths() {
 
     source_dataset=$source_dataset_name
     source_path="$source_pool"/"$source_dataset"
-    zfs_destination_path="$destination_pool"/"$parent_destination_dataset"/"$source_pool"_"$source_dataset"
-    destination_rsync_location="$parent_destination_folder"/"$source_pool"_"$source_dataset"
-    sanoid_config_complete_path="$sanoid_config_dir""$source_pool"_"$source_dataset"/
+    source_dataset_flat=$(echo $source_dataset | sed 's|/|_|g') # replaces all / with _
+    
+    zfs_destination_path="$destination_pool"/"$parent_destination_dataset"/"$source_pool"_"$source_dataset_flat"
+    destination_rsync_location="$parent_destination_folder"/"$source_pool"_"$source_dataset_flat"
+    sanoid_config_complete_path="$sanoid_config_dir""$source_pool"_"$source_dataset_flat"/
 }
 #
 ####################
