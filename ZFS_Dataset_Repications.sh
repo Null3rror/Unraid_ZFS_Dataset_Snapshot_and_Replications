@@ -20,7 +20,10 @@ notify_tune="yes"  # as well as a notifiction, if sucessful it will play the Mar
 source_pool="source_zfs_pool_name"  #this is the zpool in which your source dataset resides (note the does NOT start with /mnt/)
 source_dataset="dataset_name"   #this is the name of the dataset you want to snapshot and/or replicate
                                 #If using auto snapshots souce pool CAN NOT contain spaces. This is because sanoid config doesnt handle them
-source_dataset_auto_select="no"  # Set to "no" to snapshot and replicate only the specified source_dataset, "yes" to auto-select all datasets for these operations
+source_datasets="no"    # Set to "no" to snapshot and replicate only the specified source_dataset, "yes" to use the source_dataset_list instead
+source_dataset_list=("dataset1_name" "dataset2_name")
+
+source_dataset_auto_select="no"  # Set to "no" to snapshot and replicate only the specified source_dataset or source_dataset_list if source_datasets is set to "yes", "yes" to auto-select all datasets for these operations
 source_dataset_auto_select_exclude_prefix="backup_"	# Prefix to exclude certain datasets from auto-selection. Leave empty to disable exclusion
 source_dataset_auto_select_excludes=(
 	# List of dataset names to be excluded from auto-selection for snapshotting and replication
@@ -500,10 +503,13 @@ run_for_each_dataset() {
   # Array to hold dataset names for processing
   declare -a dataset_names
 
-  if [[ "$source_dataset_auto_select" == "no" ]]; then
+  if [[ "$source_dataset_auto_select" == "no" && "$source_datasets" == "no" ]]; then
     # Directly use the specified dataset if auto-selection is disabled
     selected_source_datasets=("$source_dataset")
-  else
+  elif [[ "$source_datasets" == "yes" ]]; then
+    # Use source_dataset_list if source_datasets is enabled
+    selected_source_datasets=("${source_dataset_list[@]}")
+  elif [[ "$source_dataset_auto_select" == "yes" ]]; then  
     # Filter datasets based on exclusion rules if auto-selection is enabled
     if [[ -z "$source_dataset_auto_select_exclude_prefix" ]]; then
       # Select all datasets if no exclusion prefix is specified
