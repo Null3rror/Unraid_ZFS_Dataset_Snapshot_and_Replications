@@ -17,10 +17,10 @@ notify_tune="yes"  # as well as a notifiction, if sucessful it will play the Mar
 #
 ####################
 # Source for snapshotting and/or replication
-source_pool="cache_vm_docker"  #this is the zpool in which your source dataset resides (note the does NOT start with /mnt/)
-source_dataset="appdata"   #this is the name of the dataset you want to snapshot and/or replicate
+source_pool="source_zfs_pool_name"  #this is the zpool in which your source dataset resides (note the does NOT start with /mnt/)
+source_dataset="dataset_name"   #this is the name of the dataset you want to snapshot and/or replicate
                                 #If using auto snapshots souce pool CAN NOT contain spaces. This is because sanoid config doesnt handle them
-source_dataset_auto_select="yes"  # Set to "no" to snapshot and replicate only the specified source_dataset, "yes" to auto-select all datasets for these operations
+source_dataset_auto_select="no"  # Set to "no" to snapshot and replicate only the specified source_dataset, "yes" to auto-select all datasets for these operations
 source_dataset_auto_select_exclude_prefix="backup_"	# Prefix to exclude certain datasets from auto-selection. Leave empty to disable exclusion
 source_dataset_auto_select_excludes=(
 	# List of dataset names to be excluded from auto-selection for snapshotting and replication
@@ -37,7 +37,7 @@ snapshot_hours="0"
 snapshot_days="7"
 snapshot_weeks="4"
 snapshot_months="3"
-snapshot_years="1"
+snapshot_years="0"
 #
 ####################
 #
@@ -54,8 +54,8 @@ replication="zfs"   #this is set to the method for how you want to have the sour
 #
 ##########
 # zfs replication variables. You do NOT need these if replication set to "rsync" or "none"
-destination_pool="main"  #this is the zpool in which your destination dataset will be created
-parent_destination_dataset="zfs_backups" #this is the parent dataset in which a child dataset will be created containing the replicated data (zfs replication)
+destination_pool="dest_zfs_pool_name"  #this is the zpool in which your destination dataset will be created
+parent_destination_dataset="dest_dataset_name" #this is the parent dataset in which a child dataset will be created containing the replicated data (zfs replication)
 # For ZFS replication syncoid is used. The below variable sets some options for that.
 # "strict-mirror" Strict mirroring that both mirrors the source and repairs mismatches (uses --force-delete flag).This will delete snapshots in the destination which are not in the source.
 # "basic" Basic replication without any additional flags will not delete snapshots in destination if not in the source
