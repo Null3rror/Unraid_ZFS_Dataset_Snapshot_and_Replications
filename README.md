@@ -1,5 +1,10 @@
 ## Unraid ZFS Snapshot and Replication Script
 
+**Added Features:**
+1. Support custom list of datasets
+2. Support nested dataset paths
+3. Support encrypted datasets
+
 **Overview**
 
 This script is designed for Unraid servers version 6.12 and above, leveraging the ZFS capabilities introduced in this version. It provides a comprehensive solution for snapshotting and replicating ZFS datasets, either locally, to a remote server on the same network, or over the internet.
