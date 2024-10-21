@@ -17,11 +17,11 @@ notify_tune="yes"  # as well as a notifiction, if sucessful it will play the Mar
 #
 ####################
 # Source for snapshotting and/or replication
-source_pool="source_zfs_pool_name"  #this is the zpool in which your source dataset resides (note the does NOT start with /mnt/)
-source_dataset="dataset_name"   #this is the name of the dataset you want to snapshot and/or replicate
+source_pool="cache"  #this is the zpool in which your source dataset resides (note the does NOT start with /mnt/)
+source_dataset=""   #this is the name of the dataset you want to snapshot and/or replicate
                                 #If using auto snapshots souce pool CAN NOT contain spaces. This is because sanoid config doesnt handle them
-source_datasets="no"    # Set to "no" to snapshot and replicate only the specified source_dataset, "yes" to use the source_dataset_list instead
-source_dataset_list=("dataset1_name" "dataset2_name")
+source_datasets="yes"    # Set to "no" to snapshot and replicate only the specified source_dataset, "yes" to use the source_dataset_list instead
+source_dataset_list=("games")
 
 source_dataset_auto_select="no"  # Set to "no" to snapshot and replicate only the specified source_dataset or source_dataset_list if source_datasets is set to "yes", "yes" to auto-select all datasets for these operations
 source_dataset_auto_select_exclude_prefix="backup_"	# Prefix to exclude certain datasets from auto-selection. Leave empty to disable exclusion
@@ -40,7 +40,7 @@ snapshot_hours="0"
 snapshot_days="7"
 snapshot_weeks="4"
 snapshot_months="3"
-snapshot_years="0"
+snapshot_years="1"
 #
 ####################
 #
@@ -57,8 +57,9 @@ replication="zfs"   #this is set to the method for how you want to have the sour
 #
 ##########
 # zfs replication variables. You do NOT need these if replication set to "rsync" or "none"
-destination_pool="dest_zfs_pool_name"  #this is the zpool in which your destination dataset will be created
-parent_destination_dataset="dest_dataset_name" #this is the parent dataset in which a child dataset will be created containing the replicated data (zfs replication)
+destination_pool="main"  #this is the zpool in which your destination dataset will be created
+parent_destination_dataset="zfs_data_backups" #this is the parent dataset in which a child dataset will be created containing the replicated data (zfs replication)
+destination_map_one2one="yes" #this will ignore the parent_destination_dataset, and will replicate the source dataset(s) directly in the destination pool (mainly useful for sending from cache to hdd)
 # For ZFS replication syncoid is used. The below variable sets some options for that.
 # "strict-mirror" Strict mirroring that both mirrors the source and repairs mismatches (uses --force-delete flag).This will delete snapshots in the destination which are not in the source.
 # "basic" Basic replication without any additional flags will not delete snapshots in destination if not in the source
@@ -321,23 +322,28 @@ zfs_replication() {
     # Check if the destination location was set to remote
     if [ "$destination_remote" = "yes" ]; then
       destination="${remote_user}@${remote_server}:${zfs_destination_path}"
-      # check if the parent destination ZFS dataset exists on the remote server. If not, create it.
-      ssh "${remote_user}@${remote_server}" "if ! zfs list -o name -H '${destination_pool}/${parent_destination_dataset}' &>/dev/null; then zfs create '${destination_pool}/${parent_destination_dataset}'; fi"
-      if [ $? -ne 0 ]; then
-        unraid_notify "Failed to check or create ZFS dataset on remote server: ${destination}" "failure"
-        return 1
-      fi
-    else
-      destination="${zfs_destination_path}"
-      # check if the parent destination ZFS dataset exists locally. If not, create it.
-      if ! zfs list -o name -H "${destination_pool}/${parent_destination_dataset}" &>/dev/null; then
-        zfs create "${destination_pool}/${parent_destination_dataset}"
+      if [[ "$destination_map_one2one" == "no" ]]; then
+        # check if the parent destination ZFS dataset exists on the remote server. If not, create it.
+        ssh "${remote_user}@${remote_server}" "if ! zfs list -o name -H '${destination_pool}/${parent_destination_dataset}' &>/dev/null; then zfs create '${destination_pool}/${parent_destination_dataset}'; fi"
         if [ $? -ne 0 ]; then
-          unraid_notify "Failed to check or create local ZFS dataset: ${destination_pool}/${parent_destination_dataset}" "failure"
+          unraid_notify "Failed to check or create ZFS dataset on remote server: ${destination}" "failure"
           return 1
         fi
       fi
+    else
+      destination="${zfs_destination_path}"
+      if [[ "$destination_map_one2one" == "no" ]]; then
+        if ! zfs list -o name -H "${destination_pool}/${parent_destination_dataset}" &>/dev/null; then
+          zfs create "${destination_pool}/${parent_destination_dataset}"
+          if [ $? -ne 0 ]; then
+            unraid_notify "Failed to check or create local ZFS dataset: ${destination_pool}/${parent_destination_dataset}" "failure"
+            return 1
+          fi
+        fi
+      fi
+      # check if the parent destination ZFS dataset exists locally. If not, create it.
     fi
+    
     # calc which syncoid flags to use, based on syncoid_mode
     local -a syncoid_flags=("-r")
     case "${syncoid_mode}" in
@@ -357,7 +363,7 @@ zfs_replication() {
     fi
     #
     # Use syncoid to replicate snapshot to the destination dataset
-    echo "Starting ZFS replication using syncoid with mode: ${syncoid_mode}"
+    echo "Starting ZFS replication using syncoid with mode: ${syncoid_mode} from: ${source_path} to: ${destination}"
     /usr/local/sbin/syncoid "${syncoid_flags[@]}" "${source_path}" "${destination}"
     if [ $? -eq 0 ]; then
       if [ "$destination_remote" = "yes" ]; then
@@ -492,6 +498,10 @@ update_paths() {
     source_dataset_flat=$(echo $source_dataset | sed 's|/|_|g') # replaces all / with _
     
     zfs_destination_path="$destination_pool"/"$parent_destination_dataset"/"$source_pool"_"$source_dataset_flat"
+    if [[ "$destination_map_one2one" == "yes" ]]; then
+      zfs_destination_path="$destination_pool"/"$source_dataset"
+    fi
+    # echo "zfs_destination_path: $zfs_destination_path"
     destination_rsync_location="$parent_destination_folder"/"$source_pool"_"$source_dataset_flat"
     sanoid_config_complete_path="$sanoid_config_dir""$source_pool"_"$source_dataset_flat"/
 }
